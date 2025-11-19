@@ -1,0 +1,238 @@
+ use ecommerce;
+Database changed
+mysql> -- Customers Table
+mysql> CREATE TABLE customers (
+    ->     customer_id INT PRIMARY KEY,
+    ->     name VARCHAR(100),
+    ->     email VARCHAR(100),
+    ->     city VARCHAR(50)
+    -> );
+Query OK, 0 rows affected (0.10 sec)
+
+mysql>
+mysql> -- Products Table
+mysql> CREATE TABLE products (
+    ->     product_id INT PRIMARY KEY,
+    ->     product_name VARCHAR(100),
+    ->     category VARCHAR(50),
+    ->     price DECIMAL(10,2)
+    -> );
+Query OK, 0 rows affected (0.02 sec)
+
+mysql>
+mysql> -- Orders Table
+mysql> CREATE TABLE orders (
+    ->     order_id INT PRIMARY KEY,
+    ->     customer_id INT,
+    ->     product_id INT,
+    ->     quantity INT,
+    ->     order_date DATE,
+    ->     FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+    ->     FOREIGN KEY (product_id) REFERENCES products(product_id)
+    -> );
+Query OK, 0 rows affected (0.03 sec)
+
+mysql> INSERT INTO customers VALUES
+    -> (1, 'Alice', 'alice@mail.com', 'Delhi'),
+    -> (2, 'Bob', 'bob@mail.com', 'Mumbai'),
+    -> (3, 'Charlie', 'charlie@mail.com', 'Hyderabad');
+Query OK, 3 rows affected (0.02 sec)
+Records: 3  Duplicates: 0  Warnings: 0
+
+mysql>
+mysql> INSERT INTO products VALUES
+    -> (101, 'Laptop', 'Electronics', 55000),
+    -> (102, 'Mobile', 'Electronics', 15000),
+    -> (103, 'Shoes', 'Fashion', 2500),
+    -> (104, 'Watch', 'Fashion', 1800);
+Query OK, 4 rows affected (0.00 sec)
+Records: 4  Duplicates: 0  Warnings: 0
+
+mysql>
+mysql> INSERT INTO orders VALUES
+    -> (201, 1, 101, 1, '2025-01-02'),
+    -> (202, 1, 103, 2, '2025-01-10'),
+    -> (203, 2, 102, 1, '2025-01-12'),
+    -> (204, 3, 104, 3, '2025-01-13'),
+    -> (205, 2, 103, 1, '2025-01-15');
+Query OK, 5 rows affected (0.01 sec)
+Records: 5  Duplicates: 0  Warnings: 0
+
+mysql> SELECT o.order_id, c.name, p.product_name, p.category, o.quantity
+    -> FROM orders o
+    -> JOIN products p ON o.product_id = p.product_id
+    -> JOIN customers c ON o.customer_id = c.customer_id
+    -> WHERE p.category = 'Electronics'
+    -> ORDER BY o.order_date;
++----------+-------+--------------+-------------+----------+
+| order_id | name  | product_name | category    | quantity |
++----------+-------+--------------+-------------+----------+
+|      201 | Alice | Laptop       | Electronics |        1 |
+|      203 | Bob   | Mobile       | Electronics |        1 |
++----------+-------+--------------+-------------+----------+
+2 rows in set (0.02 sec)
+
+mysql> SELECT c.name,
+    ->        SUM(p.price * o.quantity) AS total_spent
+    -> FROM orders o
+    -> JOIN customers c ON o.customer_id = c.customer_id
+    -> JOIN products p ON o.product_id = p.product_id
+    -> GROUP BY c.name
+    -> ORDER BY total_spent DESC;
++---------+-------------+
+| name    | total_spent |
++---------+-------------+
+| Alice   |    60000.00 |
+| Bob     |    17500.00 |
+| Charlie |     5400.00 |
++---------+-------------+
+3 rows in set (0.01 sec)
+
+mysql> SELECT p.product_name,
+    ->        COUNT(o.order_id) AS total_orders
+    -> FROM products p
+    -> LEFT JOIN orders o ON p.product_id = o.product_id
+    -> GROUP BY p.product_name;
++--------------+--------------+
+| product_name | total_orders |
++--------------+--------------+
+| Laptop       |            1 |
+| Mobile       |            1 |
+| Shoes        |            2 |
+| Watch        |            1 |
++--------------+--------------+
+4 rows in set (0.01 sec)
+
+mysql> SELECT c.customer_id, c.name, o.order_id
+    -> FROM customers c
+    -> LEFT JOIN orders o ON c.customer_id = o.customer_id;
++-------------+---------+----------+
+| customer_id | name    | order_id |
++-------------+---------+----------+
+|           1 | Alice   |      201 |
+|           1 | Alice   |      202 |
+|           2 | Bob     |      203 |
+|           2 | Bob     |      205 |
+|           3 | Charlie |      204 |
++-------------+---------+----------+
+5 rows in set (0.00 sec)
+
+mysql> SELECT p.product_name, o.order_id
+    -> FROM products p
+    -> RIGHT JOIN orders o ON p.product_id = o.product_id;
++--------------+----------+
+| product_name | order_id |
++--------------+----------+
+| Laptop       |      201 |
+| Mobile       |      203 |
+| Shoes        |      202 |
+| Shoes        |      205 |
+| Watch        |      204 |
++--------------+----------+
+5 rows in set (0.00 sec)
+
+mysql> SELECT o.order_id, c.name, p.product_name, o.quantity
+    -> FROM orders o
+    -> INNER JOIN customers c ON o.customer_id = c.customer_id
+    -> INNER JOIN products p ON o.product_id = p.product_id;
++----------+---------+--------------+----------+
+| order_id | name    | product_name | quantity |
++----------+---------+--------------+----------+
+|      201 | Alice   | Laptop       |        1 |
+|      202 | Alice   | Shoes        |        2 |
+|      203 | Bob     | Mobile       |        1 |
+|      205 | Bob     | Shoes        |        1 |
+|      204 | Charlie | Watch        |        3 |
++----------+---------+--------------+----------+
+5 rows in set (0.00 sec)
+
+mysql> SELECT name
+    -> FROM customers
+    -> WHERE customer_id IN (
+    ->     SELECT customer_id
+    ->     FROM orders o
+    ->     JOIN products p ON o.product_id = p.product_id
+    ->     GROUP BY customer_id
+    ->     HAVING SUM(p.price * o.quantity) >
+    ->            (SELECT AVG(total_spending)
+    ->             FROM (
+    ->                 SELECT SUM(p.price * o.quantity) AS total_spending
+    ->                 FROM orders o
+    ->                 JOIN products p ON o.product_id = p.product_id
+    ->                 GROUP BY customer_id
+    ->             ) AS t)
+    -> );
++-------+
+| name  |
++-------+
+| Alice |
++-------+
+1 row in set (0.01 sec)
+
+mysql> CREATE VIEW product_sales AS
+    -> SELECT p.product_name,
+    ->        SUM(o.quantity * p.price) AS total_revenue,
+    ->        COUNT(o.order_id) AS total_orders
+    -> FROM products p
+    -> LEFT JOIN orders o ON p.product_id = o.product_id
+    -> GROUP BY p.product_name;
+Query OK, 0 rows affected (0.01 sec)
+
+mysql> SELECT * FROM product_sales ORDER BY total_revenue DESC;
++--------------+---------------+--------------+
+| product_name | total_revenue | total_orders |
++--------------+---------------+--------------+
+| Laptop       |      55000.00 |            1 |
+| Mobile       |      15000.00 |            1 |
+| Shoes        |       7500.00 |            2 |
+| Watch        |       5400.00 |            1 |
++--------------+---------------+--------------+
+4 rows in set (0.01 sec)
+
+mysql> -- Index to speed up joins
+mysql> CREATE INDEX idx_customer ON orders(customer_id);
+Query OK, 0 rows affected (0.06 sec)
+Records: 0  Duplicates: 0  Warnings: 0
+
+mysql> CREATE INDEX idx_product ON orders(product_id);
+Query OK, 0 rows affected (0.02 sec)
+Records: 0  Duplicates: 0  Warnings: 0
+
+mysql>
+mysql> -- Index for searching customers by city
+mysql> CREATE INDEX idx_city ON customers(city);
+Query OK, 0 rows affected (0.03 sec)
+Records: 0  Duplicates: 0  Warnings: 0
+
+mysql> select * from products;
++------------+--------------+-------------+----------+
+| product_id | product_name | category    | price    |
++------------+--------------+-------------+----------+
+|        101 | Laptop       | Electronics | 55000.00 |
+|        102 | Mobile       | Electronics | 15000.00 |
+|        103 | Shoes        | Fashion     |  2500.00 |
+|        104 | Watch        | Fashion     |  1800.00 |
++------------+--------------+-------------+----------+
+4 rows in set (0.00 sec)
+
+mysql> select * from orders;
++----------+-------------+------------+----------+------------+
+| order_id | customer_id | product_id | quantity | order_date |
++----------+-------------+------------+----------+------------+
+|      201 |           1 |        101 |        1 | 2025-01-02 |
+|      202 |           1 |        103 |        2 | 2025-01-10 |
+|      203 |           2 |        102 |        1 | 2025-01-12 |
+|      204 |           3 |        104 |        3 | 2025-01-13 |
+|      205 |           2 |        103 |        1 | 2025-01-15 |
++----------+-------------+------------+----------+------------+
+5 rows in set (0.00 sec)
+
+mysql> select * from customers;
++-------------+---------+------------------+-----------+
+| customer_id | name    | email            | city      |
++-------------+---------+------------------+-----------+
+|           1 | Alice   | alice@mail.com   | Delhi     |
+|           2 | Bob     | bob@mail.com     | Mumbai    |
+|           3 | Charlie | charlie@mail.com | Hyderabad |
++-------------+---------+------------------+-----------+
+3 rows in set (0.00 sec)
